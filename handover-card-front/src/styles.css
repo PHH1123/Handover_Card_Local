@@ -1,0 +1,1980 @@
+/* ============================================================
+   Handover Card — 「세이지 & 앰버」 디자인 시스템
+
+   짙은 슬레이트가 주 색이고, 앰버는 시선을 끌어야 하는 자리에만 곁들인다.
+   민트빛이 도는 흰 바탕이 화면 전체를 눌러 줘서 인계 내용이 먼저 읽힌다.
+
+   팔레트 원본 네 색:
+   #E8ECEB 민트 화이트 · #E09E50 앰버 · #8CBDB9 세이지 · #2D3E4E 슬레이트
+
+   따뜻한 색은 --accent-warm 으로 부른다. 팔레트가 바뀌면 값만 갈아 끼우면 되도록
+   색 이름(코랄·앰버) 대신 역할로 이름을 지었다.
+
+   밝은 톤 하나로 고정한다. OS 설정에 따라 다크로 바뀌면 데모 촬영 때
+   화면이 예측되지 않기 때문이다.
+   ============================================================ */
+
+:root {
+  /* 바탕과 글자 — 바탕이 팔레트의 민트 화이트 그대로다 */
+  --bg: #e8eceb;
+  --surface: #ffffff;
+  --surface-muted: #eef2f1;
+  --border: #d9e1e0;
+  --border-strong: #c2cfce;
+
+  --text: #2d3e4e;
+  --text-muted: #5c6d7a;
+  --text-faint: #8b99a3;
+
+  /* 주 색 — 팔레트의 슬레이트. 본문 색과 같은 줄기라 화면이 조용하다. */
+  --accent: #2d3e4e;
+  --accent-hover: #1f2c39;
+  --accent-soft: #dfeceb;
+  --accent-text: #ffffff;
+
+  /*
+   * 곁들이는 따뜻한 색 — 앰버.
+   * 원본 앰버는 흰 글자를 얹기엔 밝아서, 글자·아이콘에 쓸 진한 단계를 따로 둔다.
+   */
+  --accent-warm: #e09e50;
+  --accent-warm-strong: #c07c2c;
+  --accent-warm-soft: #f8ecd9;
+
+  /* 의미 색 — 완료는 팔레트의 세이지, 진행 중은 앰버 계열 */
+  --success: #3f7f79;
+  --success-soft: #dfecea;
+  --warning: #9a6520;
+  --warning-soft: var(--accent-warm-soft);
+  /* 실패만 팔레트 밖이다. 네 색 안에 붉은 계열이 없는데 실패는 구분돼야 한다. */
+  --danger: #b04b3a;
+  --danger-soft: #f7e5e1;
+
+  --radius: 6px;
+  --radius-lg: 9px;
+
+  /* 헤더가 sticky 라 스크롤로 무언가를 맞출 때 이 높이만큼 비켜 줘야 한다 */
+  --header-h: 58px;
+
+  --shadow: 0 1px 2px rgb(45 62 78 / 7%), 0 6px 18px rgb(45 62 78 / 5%);
+  --shadow-lift: 0 2px 4px rgb(45 62 78 / 9%), 0 12px 28px rgb(45 62 78 / 8%);
+
+  --font: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Malgun Gothic', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Consolas, 'Courier New', monospace;
+}
+
+/* ---------- 리셋 ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  /*
+   * 이메일 주소처럼 띄어쓰기 없는 긴 토막이 좁은 화면을 옆으로 밀어내지 않게 한다.
+   * 한글·영문 문장은 원래 띄어쓰기에서 꺾이므로 이 규칙에 걸리지 않는다.
+   */
+  overflow-wrap: break-word;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- 레이아웃 ---------- */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 24px;
+  height: var(--header-h);
+  background: var(--bg);
+  /*
+   * 노트 표지의 경계. 먹색 2px 은 카드 쪽 괘선이 연해진 뒤로 너무 무거워서,
+   * 한 단계 눌러 잡았다. 그래도 카드 머리글(--border)보다는 진하게 둬서
+   * 앱 틀 > 내용 위계는 유지한다.
+   */
+  border-bottom: 1px solid var(--text-faint);
+}
+
+/*
+ * 머리글 요소는 폭이 모자라도 눌리지 않는다.
+ * 글자가 꺾이면 고정 높이 밖으로 삐져나오므로, 좁아지면 줄이는 대신
+ * 아래 반응형에서 두 줄로 접는다.
+ */
+.app-brand,
+.app-tabs,
+.app-nav,
+.app-nav > * {
+  flex: none;
+}
+
+/*
+ * 넓은 화면에서는 묶음이 상자를 만들지 않고 사라진다.
+ * 탭과 언어 전환이 머리글의 한 줄에 그대로 늘어선다.
+ */
+.app-subbar {
+  display: contents;
+}
+
+.app-brand,
+.app-tab,
+.app-nav .btn {
+  white-space: nowrap;
+}
+
+/* 표식 없이 이름만 둔다. 대신 이름을 키워 머리글다운 무게를 준다. */
+.app-brand {
+  display: flex;
+  align-items: center;
+  flex: none;
+  font-weight: 750;
+  font-size: 20px;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* ---------- 언어 전환 ---------- */
+
+.lang-toggle {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.lang-btn {
+  padding: 5px 9px;
+  background: none;
+  border: none;
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lang-btn:hover {
+  color: var(--text);
+}
+
+.lang-btn[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+/* 언어 전환부터가 오른쪽 묶음이다 (좁은 화면에서는 탭 줄의 오른쪽 끝으로 간다) */
+.app-header .lang-toggle {
+  margin-left: auto;
+}
+
+.app-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  /* 좁은 화면에서 옆으로 밀어 볼 때 막대가 보이면 머리글이 지저분해진다 */
+  scrollbar-width: none;
+}
+
+.app-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.app-tab {
+  flex: none;
+  padding: 6px 11px;
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 550;
+  text-decoration: none;
+  transition: background 0.12s, color 0.12s;
+}
+
+.app-tab:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.app-tab--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 이름이 길어도 머리글을 밀지 않게 잘라 준다 */
+.app-nav-user {
+  max-width: 14ch;
+  margin-right: 8px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.app-main {
+  flex: 1;
+  width: 100%;
+  max-width: 940px;
+  margin: 0 auto;
+  padding: 32px 24px 72px;
+}
+
+.app-main--narrow {
+  max-width: 460px;
+  padding-top: 60px;
+}
+
+/* ---------- 타이포 ---------- */
+
+.page-title {
+  font-size: 24px;
+  font-weight: 730;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.page-subtitle {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.page-head {
+  margin-bottom: 22px;
+}
+
+/*
+ * 구분 라벨.
+ *
+ * 모노스페이스 + uppercase + 넓은 자간은 영문 라벨용 처리다. 한글에는 맞지 않는다.
+ * uppercase 는 효과가 없고, 모노스페이스 폰트에 한글 글리프가 없어 다른 폰트로
+ * 대체되면서 의도보다 얇아지고, 11px 은 한글 획 밀도에 비해 너무 작다.
+ * 그래서 본문 폰트로 조금 크고 두껍게 잡고, 성격은 잉크 그린 색으로 낸다.
+ */
+.section-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--accent);
+}
+
+/* ---------- 패널 ---------- */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 22px;
+}
+
+.panel + .panel {
+  margin-top: 14px;
+}
+
+/* 패널 하나가 한 가지 일을 통째로 맡을 때 쓰는 머리글 */
+.panel-title {
+  font-size: 22px;
+  font-weight: 740;
+  letter-spacing: -0.03em;
+}
+
+.panel-note {
+  margin-top: 8px;
+  font-size: 14.5px;
+  color: var(--text-muted);
+}
+
+/* 입력칸을 가로로 채우고 버튼은 그 아래 왼쪽에 둔다 */
+.stack-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.stack-form > .field {
+  width: 100%;
+}
+
+/* 로그인처럼 좁은 화면에서는 패널 안쪽을 조금 더 넉넉하게 */
+.app-main--narrow .panel {
+  padding: 26px 24px;
+}
+
+/* ---------- 폼 ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field + .field {
+  margin-top: 13px;
+}
+
+.field-label {
+  font-size: 13px;
+  font-weight: 560;
+  color: var(--text-muted);
+}
+
+/* 라벨과 짧은 도움말을 한 줄에 나란히 (칸 높이를 키우지 않기 위해) */
+.field-label-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.input,
+.select {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+/*
+ * 화살표를 OS 기본형에 맡기면 테두리에 바짝 붙고 브라우저마다 모양도 다르다.
+ * 아이콘을 직접 그려 얹고 위치를 정해 준다 — 데크 아이콘을 SVG 로 그린 것과 같은 이유.
+ */
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.75 6 6.25l4.5-4.5' fill='none' stroke='%235c6d7a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px 8px;
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* background 단축 속성을 쓰면 위에서 얹은 화살표까지 지워진다 */
+.input:disabled,
+.select:disabled {
+  background-color: var(--surface-muted);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.input::placeholder {
+  color: var(--text-faint);
+}
+
+/*
+ * 고칠 수 없는 값을 입력칸 자리에 놓는다. 옆 칸과 높이를 맞추려고 같은 골격을 쓰되,
+ * 눌러도 반응이 없다는 것을 배경색으로 알린다.
+ * line-height 를 눌러 두지 않으면 본문 줄 간격 때문에 옆 입력칸보다 커진다.
+ */
+.input--static {
+  background: var(--surface-muted);
+  color: var(--text);
+  line-height: 1.35;
+  cursor: default;
+}
+
+/* ---------- 드롭다운 (목록을 직접 그린다 — Select.tsx 참고) ---------- */
+
+.select-shell {
+  position: relative;
+}
+
+/* 트리거는 입력칸과 같은 골격을 쓰되 내용물을 왼쪽부터 한 줄로 늘어놓는다 */
+.select-trigger {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.select-trigger--open {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* 이름은 그대로 두고 길면 이메일 쪽부터 줄인다 */
+.select-trigger-label {
+  flex: none;
+}
+
+.select-trigger-hint {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.select-trigger-empty {
+  color: var(--text-faint);
+}
+
+.select-badge {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.select-list {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  max-height: 268px;
+  overflow-y: auto;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 28px rgba(34, 30, 26, 0.15), 0 2px 6px rgba(34, 30, 26, 0.06);
+  animation: select-drop 0.12s ease-out;
+}
+
+.select-list--up {
+  top: auto;
+  bottom: calc(100% + 6px);
+  animation-name: select-drop-up;
+}
+
+@keyframes select-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes select-drop-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.select-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  /* 오른쪽은 체크 표시 자리를 비워 둔다 */
+  padding: 8px 32px 8px 11px;
+  border-radius: calc(var(--radius) - 3px);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.select-option-head {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.select-option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-option-hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.select-option[data-active='true'] {
+  background: var(--surface-muted);
+}
+
+/* 고른 항목은 짚고 있든 아니든 계속 눈에 띄어야 한다 */
+.select-option[aria-selected='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.select-option--parted {
+  margin-top: 5px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 calc(var(--radius) - 3px) calc(var(--radius) - 3px);
+}
+
+.select-check {
+  position: absolute;
+  top: 13px;
+  right: 11px;
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  /* 칸 높이가 달라도(도움말이 붙는 칸이 있다) 위쪽을 맞춘다 */
+  align-items: start;
+}
+
+/*
+ * .field + .field 의 위쪽 여백은 위아래로 쌓을 때만 필요하다.
+ * 좌우로 나란히 놓는 .field-row 안에서는 두 번째 칸만 아래로 밀려 어긋난다.
+ */
+.field-row > .field + .field {
+  margin-top: 0;
+}
+
+/*
+ * 칸(.field)과 칸줄(.field-row)이 섞여 쌓이는 자리에도 같은 간격을 준다.
+ * .field + .field 만 있으면 .field-row 다음에 오는 .field 에는 규칙이 걸리지 않아
+ * 그 사이만 딱 붙는다 — 「보내는 사람」 줄과 「받는 사람 이메일」 이 그 경우였다.
+ */
+.field-row + .field,
+.field + .field-row,
+.field-row + .field-row {
+  margin-top: 13px;
+}
+
+/* ---------- 버튼 ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 560;
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--surface-muted);
+  border-color: var(--text-faint);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--surface-muted);
+  border-color: transparent;
+  color: var(--text);
+}
+
+.btn--danger {
+  border-color: transparent;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--lg {
+  padding: 12px 22px;
+  font-size: 15px;
+}
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ---------- 알림 ---------- */
+
+.alert {
+  padding: 11px 14px;
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+
+.alert--error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.alert--info {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.alert a {
+  color: inherit;
+  font-weight: 560;
+}
+
+.form-alert {
+  margin-bottom: 16px;
+}
+
+/* ---------- 상태 배지 ---------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  /* 옆에 긴 제목이 오면 눌려서 글자가 알약 밖으로 새어 나온다 */
+  flex: none;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge--pending {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.badge--done {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.badge--failed {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge--pending .badge-dot {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* ---------- 유틸 ---------- */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stack--tight {
+  gap: 8px;
+}
+
+.spread {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.faint {
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.empty-state {
+  padding: 52px 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.center-screen {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  color: var(--text-muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- 세그먼트 토글 ---------- */
+
+.segmented {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 20px;
+  padding: 3px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.segmented button {
+  flex: 1;
+  padding: 7px 12px;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius) - 3px);
+  font-size: 14px;
+  font-weight: 560;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.segmented button:hover {
+  color: var(--text);
+}
+
+.segmented button[aria-selected='true'] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+/* ============================================================
+   음성 입력 데크 — 녹음과 파일 올리기가 같은 골격을 쓴다.
+
+   테이프 카운터에서 가져왔다. 위에 상태 표시와 카운터, 그 아래 괘선,
+   괘선 밑에 가로로 긴 작업 영역, 맨 아래 안내문.
+   가운데 정렬을 버리고 노트 기입란처럼 왼쪽부터 채운다.
+   ============================================================ */
+
+.deck {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 202px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.deck-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.deck-counter {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  /* 파일명이 길어도 데크를 밀어내지 않고 말줄임되도록 */
+  min-width: 0;
+}
+
+/* 초시계와 장치 이름을 한 줄에. 이름은 밑선을 시계와 맞춘다. */
+.deck-time {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.deck-device {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* 상태 표시 — 숫자·약호만 들어가는 자리라 모노스페이스가 맞다 */
+.deck-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+}
+
+.deck-status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* 녹음 중은 오류가 아니라 "지금 살아 있다" 이므로 빨강이 아니라 앰버로 알린다 */
+.deck-status--live {
+  color: var(--accent-warm-strong);
+}
+
+.deck-status--live i {
+  animation: blink 1.1s steps(1, end) infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0.2; }
+}
+
+.deck-status--paused {
+  color: var(--warning);
+}
+
+.deck-status--done {
+  color: var(--accent);
+}
+
+.deck-value {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.deck-value--idle {
+  color: var(--text-faint);
+}
+
+.deck-duration {
+  flex: none;
+}
+
+.deck-sep {
+  flex: none;
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--border-strong);
+}
+
+/*
+ * 파일명은 숫자가 아니므로 모노스페이스를 물려받지 않게 한다.
+ * 카운터와 같은 크기로 두면 긴 이름이 화면을 밀어내므로 작게 잡고 말줄임한다.
+ */
+.deck-filename {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 카운터 아래 괘선 — 노트의 기입란 */
+.deck-rule {
+  height: 1px;
+  background: var(--border);
+}
+
+.deck-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.deck-hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* 데크 안에서는 미리듣기가 이미 gap 으로 떨어져 있어 위쪽 여백이 필요 없다 */
+.deck .audio-preview {
+  margin-top: 0;
+}
+
+/* ---------- 가로 파형 ---------- */
+
+/* 왼쪽부터 채워 나가므로 막대를 늘리지 않고 왼쪽에 붙여 쌓는다 */
+.deck-wave {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  height: 34px;
+  overflow: hidden;
+}
+
+/* 끝까지 찬 뒤에는 왼쪽으로 밀려 나가는 소리를 서서히 지워 흐르는 방향을 드러낸다 */
+.deck-wave--rolling {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 10%);
+  mask-image: linear-gradient(to right, transparent, #000 10%);
+}
+
+.deck-wave i {
+  flex: none;
+  width: 3px;
+  min-height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  opacity: 0.8;
+  transition: height 0.07s linear;
+}
+
+/* ---------- 원형 녹음 버튼 ---------- */
+
+/* 완료(작은 네모)와 멈춤(큰 원)을 나란히 둔다 */
+.rec-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rec-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgb(45 62 78 / 26%);
+  transition: background 0.12s, transform 0.12s;
+}
+
+/* 녹음을 끝내는 버튼. 곁들이는 조작이라 한 단계 작게 둔다. */
+.rec-btn--sm {
+  width: 40px;
+  height: 40px;
+}
+
+.rec-btn:hover {
+  background: var(--accent-hover);
+}
+
+.rec-btn:active {
+  transform: scale(0.95);
+}
+
+/* 녹음이 살아 있는 동안의 큰 버튼(멈춤·이어하기). REC 표시와 같은 앰버로 묶는다. */
+.rec-btn--live {
+  background: var(--accent-warm-strong);
+  box-shadow: 0 2px 8px rgb(192 124 44 / 32%);
+}
+
+.rec-btn--live:hover {
+  background: #a4661f;
+}
+
+/* ---------- 파일 끌어다 놓는 자리 ---------- */
+
+.deck-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 78px;
+  padding: 14px;
+  background: var(--surface-muted);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.deck-drop--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.audio-preview {
+  margin-top: 18px;
+}
+
+/* ---------- 재생기 ---------- */
+
+.player {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 11px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.player-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+  transition: background 0.12s, transform 0.12s;
+}
+
+.player-btn:hover {
+  background: var(--accent-hover);
+}
+
+.player-btn:active {
+  transform: scale(0.94);
+}
+
+/* 재생 위치를 옮길 수 있는 경우 — range 입력을 써서 드래그와 키보드를 함께 얻는다 */
+.player-seek {
+  flex: 1;
+  min-width: 0;
+  height: 5px;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  border-radius: 3px;
+  cursor: pointer;
+  /* 지나온 구간은 잉크 그린, 남은 구간은 괘선색 */
+  background: linear-gradient(
+    to right,
+    var(--accent) 0 var(--played, 0%),
+    var(--border) var(--played, 0%) 100%
+  );
+}
+
+.player-seek::-webkit-slider-thumb {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 1px 3px rgb(62 48 32 / 30%);
+  cursor: pointer;
+}
+
+.player-seek::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 1px 3px rgb(62 48 32 / 30%);
+  cursor: pointer;
+}
+
+/* 길이를 몰라 탐색을 잠근 경우 — 진행만 보여주는 막대 */
+.player-track {
+  flex: 1;
+  min-width: 0;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.player-track-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.2s linear;
+}
+
+.player-time {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.player-time-total {
+  color: var(--text-faint);
+}
+
+.audio-preview-meta {
+  margin-top: 8px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 용량·형식 옆에 붙는 저장 링크. 눌러도 되는 곳이라는 표시로 밑줄을 남긴다. */
+/* 문장 속에 섞이는 링크. 눌러도 되는 곳임을 색과 밑줄로 함께 알린다. */
+.link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+.link:hover {
+  color: var(--accent-hover);
+}
+
+.audio-preview-save {
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+.audio-preview-save:hover {
+  color: var(--accent);
+}
+
+
+/* ---------- 표 ---------- */
+
+/* 좁은 화면에서 표가 넘칠 때 본문 대신 표만 옆으로 밀린다 */
+.table-scroll {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: 440px;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+
+.table th,
+.table td {
+  padding: 11px 12px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  font-size: 13px;
+  font-weight: 640;
+  color: var(--text-muted);
+  white-space: nowrap;
+  border-bottom-color: var(--border-strong);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* 첫 칸이 그 줄이 무엇인지 가리키는 이름이다 */
+.table td:first-child {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 숫자가 세로로 줄 맞아야 비교가 된다 */
+.table .num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 표 안의 버튼은 줄 높이를 키우지 않게 한 단계 작게 */
+.table .btn {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+/* ---------- 파일철 탭 ---------- */
+
+/*
+ * 서류철 위에 붙은 색인지처럼 보이게 한다.
+ * 고른 탭만 아래 본문과 이어지고, 나머지는 선 뒤로 물러난다.
+ */
+.folder-tabs {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 3px;
+  /* 아래 본문의 윗선을 고른 탭이 덮어야 한 장으로 이어져 보인다 */
+  margin-bottom: -1px;
+  /*
+   * 색인지 넉 장(전체·보낸 카드·받은 카드·팀 카드)은 휴대폰 폭에 다 들어가지 않는다.
+   * 눌러 담으면 「보낸 카드」가 두 줄로 꺾여 색인지 모양이 무너지므로, 옆으로 밀어서 본다.
+   */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.folder-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.folder-tab {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 7px;
+  padding: 9px 15px;
+  white-space: nowrap;
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+}
+
+.folder-tab:hover {
+  color: var(--text);
+}
+
+.folder-tab[aria-selected='true'] {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--accent);
+}
+
+/* 숫자만 들어가는 자리라 모노스페이스가 맞다 */
+.folder-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
+.folder-tab[aria-selected='true'] .folder-count {
+  color: var(--accent);
+}
+
+.folder-body {
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.folder-note {
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+/* ---------- 카드 목록 ---------- */
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card-item {
+  display: block;
+  padding: 17px 19px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.12s, box-shadow 0.15s, transform 0.15s;
+}
+
+.card-item:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lift);
+  transform: translateY(-1px);
+}
+
+/* 이슈 점을 글자 높이 가운데에 세우려고 flex 로 잡는다 */
+.card-item-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15px;
+  font-weight: 640;
+  letter-spacing: -0.02em;
+}
+
+.card-item-preview {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 14px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-item-meta {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+/* ---------- 카드 상세 ---------- */
+
+/* 인계 카드 머리글 — 노트의 괘선처럼 연한 한 줄로 닫는다 */
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* 팀 이름과 날짜가 함께 들어오므로 여기도 본문 폰트로 둔다 (숫자만 자리를 고정) */
+.detail-eyebrow {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * 이슈가 있는 카드 표시.
+ * 요약의 이슈 항목 점과 같은 색·같은 크기라 열어 봤을 때 무엇을 가리킨 표시였는지 이어진다.
+ */
+.issue-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.card-item-preview--empty {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.summary-title {
+  font-size: 25px;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+}
+
+.summary-note {
+  margin-top: 8px;
+  font-size: 14.5px;
+  color: var(--text-muted);
+}
+
+/* 언어 코드는 문장 속에서 짚어 줘야 할 값이라 색으로 들어 올린다 */
+.summary-note b {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.summary-group {
+  margin-top: 24px;
+}
+
+.summary-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin-bottom: 10px;
+}
+
+.summary-heading {
+  font-size: 18px;
+  font-weight: 730;
+  letter-spacing: -0.025em;
+}
+
+/* 숫자만 들어가는 자리라 모노스페이스가 맞다 */
+.summary-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.summary-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 점은 직접 그린다. 목록 기본 마커는 크기도 색도 맞출 수가 없다. */
+.summary-item {
+  position: relative;
+  padding-left: 20px;
+}
+
+.summary-item::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  /* 글자 첫 줄 가운데에 맞춘다 */
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+/* 이슈만 점을 붉게 둔다. 성격이 다른 항목이 섞여 있을 때 눈에 먼저 들어와야 한다. */
+.summary-item--blocker::before {
+  background: var(--danger);
+}
+
+.summary-item--empty {
+  color: var(--text-faint);
+  font-size: 14.5px;
+}
+
+/* 번역문을 크게, 원문을 아래에 작게 — 둘을 함께 보여주는 것이 이 제품의 핵심이다 */
+.summary-target {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.summary-source {
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+/* ---------- 결과 고치기 ---------- */
+
+/*
+ * 여러 줄 입력. .input 의 골격을 그대로 쓰되 세로로만 늘어나게 한다.
+ * 가로 크기까지 끌 수 있으면 옆 칸과 어긋나 레이아웃이 무너진다.
+ */
+.input--area {
+  display: block;
+  resize: vertical;
+  min-height: 76px;
+  line-height: 1.6;
+}
+
+.input--area-sm {
+  min-height: 52px;
+}
+
+.edit-field {
+  display: block;
+  margin-top: 12px;
+}
+
+.edit-field .field-label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+/* 항목 하나가 한 덩어리로 보여야 어느 원문과 번역이 짝인지 알 수 있다 */
+.edit-entry {
+  margin-top: 12px;
+  padding: 12px 14px 14px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+/* 첫 칸은 덩어리 안쪽 여백이 이미 자리를 잡아 준다 */
+.edit-entry .edit-field:first-child {
+  margin-top: 0;
+}
+
+.edit-entry-remove {
+  margin-top: 10px;
+  padding-left: 0;
+  color: var(--danger);
+}
+
+.transcript-block + .transcript-block {
+  margin-top: 14px;
+}
+
+.transcript-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.transcript {
+  padding: 15px;
+  background: var(--surface-muted);
+  border-radius: var(--radius);
+  white-space: pre-wrap;
+  line-height: 1.75;
+}
+
+.transcript--source {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ---------- 처리 진행 표시 ---------- */
+
+.progress-track {
+  display: flex;
+  gap: 4px;
+  margin-top: 18px;
+}
+
+.progress-step {
+  position: relative;
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+  transition: background 0.3s;
+}
+
+.progress-step[data-state='done'] {
+  background: var(--accent);
+}
+
+/*
+ * 지금 처리 중인 칸은 통째로 천천히 깜빡인다. 돌아가는 로딩을 대신하는 자리다.
+ * 완전히 꺼지지는 않게 둔다 — 다 꺼지면 아직 시작 안 한 칸과 구분이 안 된다.
+ */
+.progress-step[data-state='active']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--accent);
+  animation: progress-blink 1.9s ease-in-out infinite;
+}
+
+@keyframes progress-blink {
+  0%,
+  100% {
+    opacity: 0.22;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.progress-count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* 칸과 같은 간격·같은 폭으로 나눠야 라벨이 제 칸 아래에 선다 */
+.progress-labels {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.progress-label {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.progress-label[data-current='true'] {
+  font-weight: 640;
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-step[data-state='active']::after {
+    animation: none;
+    /* 깜빡임 없이도 지금 칸임을 알 수 있게 옅게 켜 둔다 */
+    opacity: 0.55;
+  }
+}
+
+/* ---------- 팀원 / 신청 목록 ---------- */
+
+.member-list {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.member-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+}
+
+.member-tag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ---------- 소셜 로그인 ---------- */
+
+/* ---------- 목록 아래 남기기 블록 ---------- */
+
+/*
+ * 목록과 확실히 끊어 준다. 구분선이 없으면 마지막 카드와 붙어 보여서
+ * 녹음 블록이 카드의 일부처럼 읽힌다.
+ */
+.compose {
+  margin-top: 40px;
+  padding-top: 32px;
+  border-top: 1px solid var(--border);
+  /*
+   * 내려가서 멈출 때 구분선이 헤더 밑에 딱 붙는다.
+   * 이 값이 없으면 sticky 헤더가 선을 덮어 어중간한 자리에서 멈춘 것처럼 보인다.
+   */
+  scroll-margin-top: var(--header-h);
+}
+
+.compose-head {
+  margin-bottom: 18px;
+}
+
+/* 한 패널 안에서 성격이 다른 두 묶음을 나누는 선 */
+.panel-split {
+  height: 1px;
+  margin: 20px 0;
+  background: var(--border);
+}
+
+/* ---------- 로그인 화면 ---------- */
+
+.login-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* 제품 이름은 패널 밖 왼쪽 위에 크게 하나만 둔다 */
+.login-brand {
+  font-size: 30px;
+  font-weight: 730;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.login-heading {
+  margin-bottom: 20px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* 입력칸과 같은 폭으로 채운다 */
+.login-submit {
+  width: 100%;
+  margin-top: 22px;
+}
+
+.login-switch {
+  margin-top: 22px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* 문장 안에 섞이는 버튼이라 링크처럼 보여야 한다 */
+.link-btn {
+  padding: 0;
+  background: none;
+  border: none;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  color: var(--accent);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.social-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.social-btn {
+  gap: 9px;
+}
+
+/* 로고는 글자 크기를 따라 커지지 않게 고정한다 */
+.social-mark {
+  flex: none;
+  width: 17px;
+  height: 17px;
+}
+
+/* ---------- 스피너 ---------- */
+
+.spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .spinner { animation-duration: 1.2s !important; animation-iteration-count: infinite !important; }
+}
+
+/* ---------- 반응형 ---------- */
+
+/*
+ * 머리글은 폭이 줄면 요소를 눌러 담지 않고 순서대로 덜어 낸다.
+ * 한 줄 배치는 영어 문구 기준으로 760px 언저리에서 한계에 닿는다
+ * (브랜드 130 + 탭 220 + 언어 126 + 버튼 200 + 여백).
+ */
+
+/* 1) 이름부터 접는다. 없어도 화면을 쓰는 데 지장이 없는 유일한 요소다. */
+@media (max-width: 900px) {
+  .app-header { gap: 12px; padding: 0 16px; }
+  .app-nav-user { display: none; }
+}
+
+/*
+ * 2) 한 줄에 못 담는 폭 — 브랜드·버튼을 윗줄, 탭·언어를 아랫줄에 둔다.
+ * flex 줄바꿈은 폭에 따라 접히는 자리가 달라져서 중간 폭마다 배치가 튄다.
+ * 격자로 자리를 못박아 두면 어느 폭에서도 같은 모양으로 접힌다.
+ */
+@media (max-width: 800px) {
+  /* 머리글이 두 줄이 되었으므로 스크롤 보정값도 같이 커져야 한다 */
+  :root { --header-h: 102px; }
+
+  .app-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand nav'
+      'sub   sub';
+    align-items: center;
+    height: auto;
+    padding: 9px 16px;
+    row-gap: 8px;
+    column-gap: 12px;
+  }
+
+  /* 칸을 채우면 글자 없는 자리까지 눌리는 링크가 된다 */
+  .app-brand { grid-area: brand; justify-self: start; }
+  .app-nav { grid-area: nav; justify-self: end; }
+
+  /*
+   * 아랫줄은 두 칸을 가로지른다. 칸 나눔에 묶어 두면 오른쪽 칸 폭을 윗줄 버튼이 정해 버려서,
+   * 언어 전환에 필요 없는 여백이 잡히고 그만큼 탭 끝이 잘린다 (영어에서 Settings 가 잘렸다).
+   */
+  .app-subbar {
+    grid-area: sub;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  /* 줄어드는 몫은 전부 탭이 받는다. 그래도 넘치면 옆으로 밀어서 본다. */
+  .app-tabs {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+  }
+}
+
+/* 3) 휴대폰 폭 — 버튼 두 개가 브랜드와 같은 줄에 남으려면 살을 빼야 한다 */
+@media (max-width: 430px) {
+  .app-brand { font-size: 17px; }
+  .app-nav .btn { padding: 8px 12px; font-size: 13px; }
+  .app-tab { padding: 5px 9px; font-size: 13px; }
+  .lang-btn { padding: 4px 7px; font-size: 12px; }
+
+  /* 색인지도 같이 줄여 둔다. 그래야 한국어는 밀지 않고도 넉 장이 다 보인다. */
+  .folder-tab { padding: 8px 10px; gap: 6px; font-size: 13px; }
+
+  /* 다섯 칸으로 나눈 자리에 「음성 인식」이 한 줄로 들어가려면 여기까지 줄여야 한다 */
+  .progress-label { font-size: 11px; letter-spacing: -0.02em; }
+
+  .panel { padding: 18px 16px; }
+}
+
+@media (max-width: 560px) {
+  .app-main { padding: 24px 16px 48px; }
+  /* 한 칸으로 접히면 다시 위아래 여백이 필요해진다 */
+  .field-row { grid-template-columns: 1fr; gap: 0; }
+  .field-row > .field + .field { margin-top: 16px; }
+
+  .member-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+}

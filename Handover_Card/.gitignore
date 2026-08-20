@@ -1,0 +1,13 @@
+build/
+.gradle/
+data/
+*.log
+.env
+.idea/
+*.iml
+out/
+.DS_Store
+docs/
+DEVELOPMENT.md
+*.pem
+ppt/

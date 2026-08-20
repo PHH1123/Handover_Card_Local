@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:handover_card;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+spring.ai:
+  openai:
+    api-key: test-key
+
+jwt:
+  secret: test-only-secret-must-be-at-least-32-bytes-long-for-hs256
+  access-token-validity-seconds: 1800
+  refresh-token-validity-seconds: 1209600
+
+summarization:
+  provider: mock
+  mock:
+    simulated-delay-ms: 0
+
+# 테스트는 외부 의존 없이 빠르게 돌아야 하므로 로컬 디스크를 쓴다.
+# S3 구현체는 S3AudioStorageServiceTest에서 별도로 검증한다.
+handover:
+  storage:
+    provider: local
