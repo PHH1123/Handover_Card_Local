@@ -1,0 +1,13 @@
+.git
+node_modules
+dist
+dist-ssr
+.env
+.env.*
+!.env.example
+*.pem
+*.log
+.DS_Store
+.idea
+.vscode
+.claude

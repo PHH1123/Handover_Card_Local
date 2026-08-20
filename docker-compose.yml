@@ -1,0 +1,162 @@
+# 백엔드(Handover_Card) + 프론트(handover-card-front)를 로컬에서 한 번에 띄우는 구성.
+#
+# 외부에 붙어야 하는 것 중 로컬로 대체할 수 있는 건 전부 로컬 컨테이너로 돌린다.
+#   - DB          : MySQL 컨테이너 (운영 DB 대신)
+#   - 오디오 저장소 : MinIO 컨테이너 (AWS S3 대신, 같은 S3 API)
+#   - 프론트 API   : Vite 개발 서버 프록시가 배포된 api.handover-card.o-r.kr 대신
+#                   같은 네트워크의 backend:8080 으로 보낸다
+#
+# 밖으로 나가는 호출로 남는 건 OpenAI(전사/요약)뿐이고, 그마저도 provider 를 mock 으로
+# 두면(docker/backend.env 기본값) 키 없이 완전히 로컬로 돈다.
+#
+#   docker compose up --build         # 전부 기동 (프론트: http://localhost:5173)
+#   docker compose down               # 정지
+#   docker compose down -v            # DB/저장소 데이터까지 삭제
+
+name: handover-card
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: handover-card-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: handover_card
+      MYSQL_USER: ${DB_USERNAME:-handover}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-handover}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # 개발 환경의 S3. 운영에서 쓸 AWS S3와 같은 API라 애플리케이션은 엔드포인트만 다르게 본다.
+  storage:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: handover-card-storage
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-handover}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-handover-secret}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # 웹 콘솔
+    volumes:
+      - storage-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # 버킷을 한 번만 만들고 종료되는 보조 컨테이너
+  storage-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    container_name: handover-card-storage-init
+    depends_on:
+      storage:
+        condition: service_healthy
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-handover}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-handover-secret}
+      S3_BUCKET: ${S3_BUCKET:-handover-audio}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://storage:9000 $$S3_ACCESS_KEY $$S3_SECRET_KEY &&
+      mc mb --ignore-existing local/$$S3_BUCKET &&
+      echo 'bucket ready: '$$S3_BUCKET
+      "
+
+  backend:
+    build:
+      context: ./Handover_Card
+    container_name: handover-card-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    # 뒤에 오는 파일이 앞을 덮어쓴다.
+    #   docker/backend.env  : 저장소에 커밋된 로컬 기본값(키 없이도 뜨도록 provider=mock)
+    #   Handover_Card/.env  : 각자 쓰던 개인 값(OpenAI 키, OAuth 클라이언트 등) — 있으면 그게 이긴다
+    env_file:
+      - path: ./docker/backend.env
+        required: true
+      - path: ./Handover_Card/.env
+        required: false
+    # 컨테이너 네트워크에 맞춰 고정해야 하는 값들. environment 는 env_file 보다 우선하므로
+    # 개인 .env 에 배포용 주소가 남아 있어도 로컬 컨테이너를 보게 된다.
+    environment:
+      # 운영 프로파일(application-prod.yml)이 아니라 로컬 기본값(application.yml)으로 띄운다.
+      SPRING_PROFILES_ACTIVE: default
+      # application.yml 의 datasource.url 은 localhost 고정이라 여기서 통째로 덮어쓴다.
+      SPRING_DATASOURCE_URL: "jdbc:mysql://db:3306/handover_card?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+      DB_USERNAME: ${DB_USERNAME:-handover}
+      DB_PASSWORD: ${DB_PASSWORD:-handover}
+      # 오디오는 MinIO 로. db/storage 컨테이너와 값이 어긋나면 안 되므로 같은 변수에서 뽑는다.
+      STORAGE_PROVIDER: s3
+      S3_ENDPOINT: http://storage:9000
+      S3_BUCKET: ${S3_BUCKET:-handover-audio}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-handover}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-handover-secret}
+      S3_PATH_STYLE: "true"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  # Vite 개발 서버. /api 요청은 vite.config.ts 의 프록시가 backend 컨테이너로 넘기므로
+  # 브라우저에서는 same-origin 이 되어 CORS 가 끼어들 여지가 없다.
+  frontend:
+    build:
+      context: ./handover-card-front
+      target: dev
+    container_name: handover-card-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_DEV_PROXY_TARGET: http://backend:8080
+      # 비워 둬야 프론트가 same-origin(/api)으로 부르고 위 프록시를 탄다.
+      VITE_API_BASE_URL: ""
+      # 맥/윈도우의 바인드 마운트는 파일 변경 이벤트가 컨테이너까지 오지 않을 때가 있어
+      # 폴링으로 감시한다(핫 리로드용).
+      VITE_USE_POLLING: "true"
+    volumes:
+      - ./handover-card-front:/app
+      # 호스트의 node_modules(맥용 네이티브 바이너리)가 컨테이너 것을 가리지 않도록 덮어씌운다.
+      - frontend-node-modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+  # 배포와 같은 형태(빌드된 정적 파일 + nginx 프록시)로 확인하고 싶을 때만 띄운다.
+  #   docker compose --profile static up --build frontend-static  → http://localhost:4173
+  frontend-static:
+    profiles: ["static"]
+    build:
+      context: ./handover-card-front
+      target: static
+    container_name: handover-card-frontend-static
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "4173:80"
+
+volumes:
+  db-data:
+  storage-data:
+  frontend-node-modules:

@@ -1,0 +1,6 @@
+# docker compose 가 자동으로 읽는 변수 파일. 각자 값이라 커밋하지 않는다.
+.env
+
+.DS_Store
+*.log
+*.pem

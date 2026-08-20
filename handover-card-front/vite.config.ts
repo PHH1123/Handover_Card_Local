@@ -19,6 +19,9 @@ export default defineConfig(({ mode }) => {
           secure: true,
         },
       },
+      // 도커의 바인드 마운트(맥/윈도우)에서는 파일 변경 이벤트가 컨테이너까지 오지 않아
+      // 핫 리로드가 죽는다. 그 경우에만 폴링으로 바꾼다(호스트 실행에는 영향 없음).
+      watch: env.VITE_USE_POLLING === 'true' ? { usePolling: true, interval: 300 } : undefined,
     },
   }
 })
